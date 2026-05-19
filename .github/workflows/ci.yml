@@ -356,17 +356,20 @@ jobs:
             echo "- **Author:** $(git log -1 --pretty=format:'%an <%ae>')"
             echo "- **Date:** $(git log -1 --pretty=format:'%ad' --date=short)"
             echo ""
+            if [ "${BUILD_RAN}" = "true" ]; then
+              R_BUILD_DISPLAY="${R_BUILD}"
+            else
+              R_BUILD_DISPLAY="skipped"
+            fi
             echo "### 🎯 Job results"
             echo "| Job | Result |"
             echo "|-----|--------|"
-            echo "| 🔐 Security checks | $(ic "${R_SECURITY}") \`${R_SECURITY}\` |"
             echo "| 📦 Setup | $(ic "${R_SETUP}") \`${R_SETUP}\` |"
+            echo "| 🔐 Security checks | $(ic "${R_SECURITY}") \`${R_SECURITY}\` |"
             echo "| ✨ Lint | $(ic "${R_LINT}") \`${R_LINT}\` |"
             echo "| 🔎 Typecheck | $(ic "${R_TYPECHECK}") \`${R_TYPECHECK}\` |"
             echo "| 🧪 Test & coverage | $(ic "${R_TEST}") \`${R_TEST}\` |"
-            if [ "${BUILD_RAN}" = "true" ]; then
-              echo "| 🏗️ Build & bundle | $(ic "${R_BUILD}") \`${R_BUILD}\` |"
-            fi
+            echo "| 🏗️ Build & bundle | $(ic "${R_BUILD_DISPLAY}") \`${R_BUILD_DISPLAY}\` |"
             echo ""
             echo "### ✅ What ran"
             echo "- **One \`npm ci\` per workflow** in setup; downstream jobs restore \`node_modules\` from cache"
