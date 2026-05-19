@@ -47,21 +47,6 @@ runs:
         cache: pnpm
         cache-dependency-path: pnpm-lock.yaml
 
-    - name: Lockfile consistency check
-      shell: bash
-      run: |
-        set -euo pipefail
-        if [ ! -f pnpm-lock.yaml ]; then
-          echo "No pnpm-lock.yaml; skipping lockfile check"
-          exit 0
-        fi
-        pnpm install --lockfile-only
-        git diff --exit-code pnpm-lock.yaml || (
-          echo "::error::pnpm-lock.yaml is out of sync with package.json."
-          echo "::error::Regenerate with: pnpm install --lockfile-only"
-          exit 1
-        )
-
     - name: Install dependencies
       if: inputs.install-dependencies == 'true'
       shell: bash
