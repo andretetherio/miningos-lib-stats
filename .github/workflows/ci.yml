@@ -40,7 +40,6 @@ jobs:
           fail-on-severity: moderate
           vulnerability-check: true
           license-check: true
-          comment-summary-in-pr: always
 
       - name: Restore dependencies
         uses: ./.github/actions/node-restore-cache
