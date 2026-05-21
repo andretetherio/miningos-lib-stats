@@ -40,7 +40,6 @@ jobs:
           fail-on-severity: moderate
           vulnerability-check: true
           license-check: true
-          comment-summary-in-pr: always
 
       - name: Restore dependencies
         uses: ./.github/actions/node-restore-cache
@@ -103,11 +102,33 @@ jobs:
       contents: read
     outputs:
       cache-key: ${{ steps.setup-deps.outputs.cache-key }}
+      lockfile-outcome: ${{ steps.lockfile.outcome }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Lockfile consistency check
+        id: lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f package-lock.json ]; then
+            echo "No package-lock.json; skipping lockfile check"
+            exit 0
+          fi
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          git diff --exit-code package-lock.json || (
+            echo "::error::package-lock.json is out of sync with package.json."
+            echo "::error::Regenerate with: npm install --package-lock-only --ignore-scripts --no-audit --no-fund"
+            exit 1
+          )
 
       - name: Install dependencies and cache node_modules
         id: setup-deps
@@ -293,6 +314,7 @@ jobs:
           R_TEST: ${{ needs.test.result }}
           R_BUILD: ${{ needs.build.result }}
           BUILD_RAN: ${{ needs.build.outputs.build-ran }}
+          LOCKFILE_OUTCOME: ${{ needs.setup.outputs.lockfile-outcome }}
           REF_NAME: ${{ github.head_ref || github.ref_name }}
           EVENT: ${{ github.event_name }}
         run: |
@@ -305,6 +327,21 @@ jobs:
               *) echo "❔" ;;
             esac
           }
+          if [ "${LOCKFILE_OUTCOME}" = "failure" ]; then
+            {
+              echo "## ❌ Lockfile consistency check failed"
+              echo ""
+              echo "\`package-lock.json\` is out of sync with \`package.json\`. **Install and caching were not run.**"
+              echo ""
+              echo "**Fix:**"
+              echo '```bash'
+              echo "npm install --package-lock-only --ignore-scripts --no-audit --no-fund"
+              echo '```'
+              echo ""
+              echo "See the **Setup Dependencies** job → **Lockfile consistency check** step for details."
+              echo ""
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
           {
             echo "## 📊 CI Checks summary"
             echo ""
@@ -318,17 +355,20 @@ jobs:
             echo "- **Author:** $(git log -1 --pretty=format:'%an <%ae>')"
             echo "- **Date:** $(git log -1 --pretty=format:'%ad' --date=short)"
             echo ""
+            if [ "${BUILD_RAN}" = "true" ]; then
+              R_BUILD_DISPLAY="${R_BUILD}"
+            else
+              R_BUILD_DISPLAY="skipped"
+            fi
             echo "### 🎯 Job results"
             echo "| Job | Result |"
             echo "|-----|--------|"
-            echo "| 🔐 Security checks | $(ic "${R_SECURITY}") \`${R_SECURITY}\` |"
             echo "| 📦 Setup | $(ic "${R_SETUP}") \`${R_SETUP}\` |"
+            echo "| 🔐 Security checks | $(ic "${R_SECURITY}") \`${R_SECURITY}\` |"
             echo "| ✨ Lint | $(ic "${R_LINT}") \`${R_LINT}\` |"
             echo "| 🔎 Typecheck | $(ic "${R_TYPECHECK}") \`${R_TYPECHECK}\` |"
             echo "| 🧪 Test & coverage | $(ic "${R_TEST}") \`${R_TEST}\` |"
-            if [ "${BUILD_RAN}" = "true" ]; then
-              echo "| 🏗️ Build & bundle | $(ic "${R_BUILD}") \`${R_BUILD}\` |"
-            fi
+            echo "| 🏗️ Build & bundle | $(ic "${R_BUILD_DISPLAY}") \`${R_BUILD_DISPLAY}\` |"
             echo ""
             echo "### ✅ What ran"
             echo "- **One \`npm ci\` per workflow** in setup; downstream jobs restore \`node_modules\` from cache"

@@ -36,21 +36,6 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
-    - name: Lockfile consistency check
-      shell: bash
-      run: |
-        set -euo pipefail
-        if [ ! -f package-lock.json ]; then
-          echo "No package-lock.json; skipping lockfile check"
-          exit 0
-        fi
-        npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-        git diff --exit-code package-lock.json || (
-          echo "::error::package-lock.json is out of sync with package.json."
-          echo "::error::Regenerate with: npm install --package-lock-only --ignore-scripts --no-audit --no-fund"
-          exit 1
-        )
-
     - name: Install dependencies
       if: inputs.install-dependencies == 'true'
       shell: bash
